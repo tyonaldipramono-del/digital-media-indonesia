@@ -1,0 +1,12 @@
+{
+  "name": "digital-media-indonesia",
+  "compatibility_date": "2026-09-26",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "digital-media-indonesia-db",
+      "database_id": "8d805c65-7c66-4f16-847c-322d69f2b9ac"
+    }
+  ]
+}

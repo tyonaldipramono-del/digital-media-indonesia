@@ -264,7 +264,7 @@ async function loadProducts(){
   products=await api("/api/admin/products");
   document.getElementById("product_id").innerHTML=
     '<option value="">— Select —</option>'+
-    products.map(p=>`<option value="${esc(p.id)}">${esc(p.name_id)}</option>`).join("");
+    products.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name_id)+'</option>').join("");
 }
 
 async function loadProjects(){
@@ -279,23 +279,32 @@ function renderProjects(){
     return;
   }
 
-  el.innerHTML=`<table class="table">
-    <thead><tr>
-      <th>Project</th><th>Product</th><th>Year</th><th>Status</th><th>Actions</th>
-    </tr></thead>
-    <tbody>
-      ${projects.map(p=>`<tr>
-        <td><b>${esc(p.title_id)}</b><div class="meta">${esc(p.client||"")}</div></td>
-        <td>${esc(p.product_name_id||"-")}</td>
-        <td>${esc(p.year||"")}</td>
-        <td><span class="badge">${esc(p.status)}</span>${p.featured?'<span class="badge">Featured</span>':""}</td>
-        <td><div class="actions">
-          <button class="btn secondary" onclick="editProject('${p.id}')">Edit</button>
-          <button class="btn danger" onclick="deleteProject('${p.id}')">Delete</button>
-        </div></td>
-      </tr>`).join("")}
-    </tbody>
-  </table>`;
+  el.innerHTML='<table class="table">'+
+    '<thead><tr>'+
+      '<th>Project</th><th>Product</th><th>Year</th><th>Status</th><th>Actions</th>'+
+    '</tr></thead>'+
+    '<tbody>'+
+      projects.map(function(p){
+        return '<tr>'+
+          '<td><b>'+esc(p.title_id)+'</b><div class="meta">'+esc(p.client||"")+'</div></td>'+
+          '<td>'+esc(p.product_name_id||"-")+'</td>'+
+          '<td>'+esc(p.year||"")+'</td>'+
+          '<td><span class="badge">'+esc(p.status)+'</span>'+(p.featured?'<span class="badge">Featured</span>':'')+'</td>'+
+          '<td><div class="actions">'+
+            '<button class="btn secondary" data-edit="'+esc(p.id)+'">Edit</button>'+
+            '<button class="btn danger" data-delete="'+esc(p.id)+'">Delete</button>'+
+          '</div></td>'+
+        '</tr>';
+      }).join('')+
+    '</tbody>'+
+  '</table>';
+
+  el.querySelectorAll('[data-edit]').forEach(function(btn){
+    btn.addEventListener('click', function(){ editProject(btn.getAttribute('data-edit')); });
+  });
+  el.querySelectorAll('[data-delete]').forEach(function(btn){
+    btn.addEventListener('click', function(){ deleteProject(btn.getAttribute('data-delete')); });
+  });
 }
 
 function resetForm(){
@@ -335,7 +344,7 @@ function editProject(id){
 
 async function deleteProject(id){
   const p=projects.find(x=>x.id===id);
-  if(!confirm(`Hapus project "${p?.title_id||id}"?`)) return;
+  if(!confirm('Hapus project "'+(p?.title_id||id)+'"?')) return;
   try{
     await api("/api/admin/projects/"+encodeURIComponent(id),{method:"DELETE"});
     await loadProjects();
@@ -384,7 +393,7 @@ modal.addEventListener("click",e=>{if(e.target===modal)closeModal();});
     await loadProjects();
   }catch(e){
     document.getElementById("projectTable").innerHTML=
-      `<div class="empty">Error: ${esc(e.message)}</div>`;
+      '<div class="empty">Error: '+esc(e.message)+'</div>';
   }
 })();
 </script>

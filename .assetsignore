@@ -1,0 +1,8 @@
+.git
+.git/**
+.wrangler
+.wrangler/**
+worker.js
+wrangler.jsonc
+README*
+*.zip

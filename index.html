@@ -793,6 +793,76 @@ if(storedProjects){
 let uploadedCoverData = "";
 
 function saveProjects(){ localStorage.setItem("dmi_projects", JSON.stringify(projects)); }
+
+/* Public portfolio source: Cloudflare Worker + D1 via /api/projects.
+   Existing local data remains only as a fallback if the API is unavailable. */
+function normalizeApiProject(p){
+  const titleId=p.title_id||p.title_en||"Untitled Project";
+  const titleEn=p.title_en||p.title_id||"Untitled Project";
+  const productNameId=p.product_name_id||"";
+  const productNameEn=p.product_name_en||productNameId;
+  return {
+    id:String(p.id||p.slug||("api-"+Math.random().toString(36).slice(2))),
+    slug:p.slug||"",
+    title:titleId,
+    titleId,
+    titleEn,
+    client:p.client||"",
+    year:p.year?Number(p.year):"",
+    productId:p.product_id||"",
+    productType:productNameId||productNameEn||"Videografer",
+    productNameId,
+    productNameEn,
+    productGroup:p.product_group||"",
+    type:productNameId||productNameEn||"Portfolio",
+    category:p.product_group||"Service",
+    location:p.location||"",
+    role:p.role_id||p.role_en||"",
+    roleId:p.role_id||"",
+    roleEn:p.role_en||p.role_id||"",
+    tools:p.tools||"",
+    descId:p.description_id||"",
+    descEn:p.description_en||p.description_id||"",
+    cover:p.cover_url||"",
+    videoUrl:p.video_url||"",
+    sourceUrl:p.source_url||"",
+    deliverables:p.deliverables||"",
+    status:"Published",
+    featured:Number(p.featured)===1||p.featured===true,
+    sortOrder:Number(p.sort_order||0),
+    fromApi:true
+  };
+}
+
+function projectTitle(p){
+  return lang==="en"?(p.titleEn||p.title||p.titleId||""):(p.titleId||p.title||p.titleEn||"");
+}
+function projectRole(p){
+  return lang==="en"?(p.roleEn||p.role||p.roleId||""):(p.roleId||p.role||p.roleEn||"");
+}
+function projectProductLabel(p){
+  if(lang==="en" && p.productNameEn) return p.productNameEn;
+  if(lang==="id" && p.productNameId) return p.productNameId;
+  return inferProduct(p);
+}
+function projectGroupId(p){
+  return p.productGroup||getProductGroup(inferProduct(p)).id;
+}
+
+async function loadProjectsFromAPI(){
+  try{
+    const response=await fetch("/api/projects",{headers:{"Accept":"application/json"},cache:"no-store"});
+    if(!response.ok) throw new Error("HTTP "+response.status);
+    const data=await response.json();
+    if(!Array.isArray(data)) throw new Error("Invalid /api/projects response");
+    projects=data.map(normalizeApiProject);
+    renderProjects();
+    renderAdmin();
+    renderMediaManager();
+  }catch(error){
+    console.warn("DMI: /api/projects unavailable; using local fallback.",error);
+  }
+}
 function setLang(l){
   lang=l; localStorage.setItem("dmi_lang",l);
   document.documentElement.lang=l;
@@ -813,16 +883,15 @@ function renderProjects(){
   const list=projects.filter(p=>{
     if(p.status!=="Published") return false;
     if(currentFilter==="all") return true;
-    const product=inferProduct(p);
-    return getProductGroup(product).id===currentFilter;
+    return projectGroupId(p)===currentFilter;
   });
   grid.innerHTML=list.length?list.map(p=>`
     <article class="project" onclick="openProject('${p.id}')">
-      <div class="project-media"><img src="${p.cover || projectCover(p.title,p.type)}" alt="${escapeHtml(p.title)}"></div>
+      <div class="project-media"><img src="${p.cover || projectCover(projectTitle(p),p.type)}" alt="${escapeHtml(projectTitle(p))}"></div>
       <div class="project-info">
         <div>
-          <div class="project-title">${escapeHtml(p.title)}</div>
-          <div class="meta">${escapeHtml(p.client||"Digital Media Indonesia")} · ${escapeHtml(inferProduct(p))} · ${p.year||""}</div>
+          <div class="project-title">${escapeHtml(projectTitle(p))}</div>
+          <div class="meta">${escapeHtml(p.client||"Digital Media Indonesia")} · ${escapeHtml(projectProductLabel(p))} · ${p.year||""}</div>
         </div>
         <div class="arrow">↗</div>
       </div>
@@ -834,18 +903,18 @@ function openProject(id){
   const p=projects.find(x=>x.id===id); if(!p)return;
   const d=lang==="id"?(p.descId||""):(p.descEn||p.descId||"");
   document.getElementById("projectDetail").innerHTML=`
-    <div class="detail-cover"><img src="${p.cover || projectCover(p.title,p.type)}" alt="${escapeHtml(p.title)}"></div>
+    <div class="detail-cover"><img src="${p.cover || projectCover(projectTitle(p),p.type)}" alt="${escapeHtml(projectTitle(p))}"></div>
     ${buildVideoEmbed(p.videoUrl)}
-    <h2 class="detail-title">${escapeHtml(p.title)}</h2>
-    <div class="meta">${escapeHtml(p.client||"")} · ${escapeHtml(inferProduct(p))} · ${p.year||""}</div>
+    <h2 class="detail-title">${escapeHtml(projectTitle(p))}</h2>
+    <div class="meta">${escapeHtml(p.client||"")} · ${escapeHtml(projectProductLabel(p))} · ${p.year||""}</div>
     <div class="detail-body">
       <p>${escapeHtml(d)}</p>
       <div class="detail-list">
         <div><span>Client</span><span>${escapeHtml(p.client||"-")}</span></div>
         <div><span>Year</span><span>${p.year||"-"}</span></div>
-        <div><span>Product</span><span>${escapeHtml(inferProduct(p))}</span></div>
+        <div><span>Product</span><span>${escapeHtml(projectProductLabel(p))}</span></div>
         <div><span>Location</span><span>${escapeHtml(p.location||"-")}</span></div>
-        <div><span>Role</span><span>${escapeHtml(p.role||"-")}</span></div>
+        <div><span>Role</span><span>${escapeHtml(projectRole(p)||"-")}</span></div>
         <div><span>Tools</span><span>${escapeHtml(p.tools||"-")}</span></div>
         ${p.deliverables?`<div><span>Deliverables</span><span>${escapeHtml(p.deliverables)}</span></div>`:""}
         ${p.videoUrl?`<div><span>Video Source</span><span>${getGoogleDriveFileId(p.videoUrl)?"Google Drive":getYouTubeId(p.videoUrl)?"YouTube":getVimeoId(p.videoUrl)?"Vimeo":"External"}</span></div>`:""}
@@ -1520,6 +1589,7 @@ applySiteMedia();
 bindMediaManager();
 renderMediaManager();
 renderAdmin();
+loadProjectsFromAPI();
 </script>
 </body>
 </html>
